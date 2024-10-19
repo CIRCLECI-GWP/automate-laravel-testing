@@ -71,15 +71,25 @@ jobs:
             php artisan dusk:update --detect
 
       - run:
-          name: Start Chrome Driver
-          command: ./vendor/laravel/dusk/bin/chromedriver-linux
+          name: "Start Chrome Driver"
+          command: |
+            ./vendor/laravel/dusk/bin/chromedriver-linux --port=9515 --url-base=wd/hub --headless
           background: true
 
       - run:
-          name: Run Laravel Server
-          command: php artisan serve
+          name: "Run Laravel Server"
+          command: php artisan serve --host=127.0.0.1 --port=8000
           background: true
 
+      # Ensure the Laravel server is running and ready
       - run:
-          name: Run Browser Tests Tests
-          command: php artisan dusk
+          name: "Wait for Laravel Server"
+          command: |
+            until curl --output /dev/null --silent --head --fail http://127.0.0.1:8000; do
+              echo 'Waiting for Laravel server...'
+              sleep 5
+            done
+
+      - run:
+          name: "Run Browser Tests with Laravel Dusk"
+          command: php artisan dusk --env=dusk
