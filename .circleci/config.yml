@@ -50,7 +50,6 @@ jobs:
       - run:
           name: "Install Sqlite"
           command: |
-            sudo apt-get update
             sudo LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php
             sudo apt-get update
             sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php8.2-sqlite3
