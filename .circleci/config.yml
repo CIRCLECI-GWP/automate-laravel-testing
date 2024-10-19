@@ -49,8 +49,11 @@ jobs:
           command: ./vendor/bin/phpunit tests/Unit
       - run:
           name: "Install Sqlite"
-          command: sudo apt-get install php7.4-sqlite3
-
+          command: |
+            sudo apt-get update
+            sudo LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php8.2-sqlite3
       - run:
           name: "Create database and run migration"
           command: |
