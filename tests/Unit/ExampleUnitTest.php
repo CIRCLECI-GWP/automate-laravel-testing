@@ -24,10 +24,17 @@ class ExampleUnitTest extends TestCase
             ->with('testpassword')
             ->andReturn('hashedpassword');
 
-        $user = $this->createMock(User::class);
-        $user->name = "Test User";
-        $user->email = "test@mail.com";
-        $user->password = Hash::make("testpassword");
+        $user = $this->getMockBuilder(User::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getAttribute'])
+            ->getMock();
+
+        $user->method('getAttribute')
+            ->willReturnMap([
+                ['name', 'Test User'],
+                ['email', 'test@mail.com'],
+                ['password', 'hashedpassword'],
+            ]);
 
         $this->assertEquals('Test User', $user->name);
         $this->assertEquals('hashedpassword', $user->password);
