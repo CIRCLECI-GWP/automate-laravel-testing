@@ -1,11 +1,11 @@
 version: 2.1
 orbs:
-  browser-tools: circleci/browser-tools@1.4.8  # Updated orb version
+  browser-tools: circleci/browser-tools@1.4.8
 
 jobs:
   build:
     docker:
-      - image: cimg/php:8.2-browsers  # Updated PHP version to 8.2
+      - image: cimg/php:8.2-browsers  # Using PHP 8.2 with browser support
 
     steps:
       - browser-tools/install-browser-tools
@@ -21,7 +21,6 @@ jobs:
             echo "Contents of .env file:"
             cat .env
 
-      # Download and cache dependencies
       - restore_cache:
           keys:
             - v1-dependencies-{{ checksum "composer.json" }}
@@ -71,6 +70,34 @@ jobs:
       - run:
           name: "Update ChromeDriver"
           command: php artisan dusk:update --detect
+
+      - run:
+          name: "Start Laravel Server"
+          command: |
+            php artisan serve --host=127.0.0.1 --port=8000 --env=testing > storage/logs/server.log 2>&1 &
+          background: true
+
+      - run:
+          name: "Wait for Laravel Server"
+          command: |
+            timeout=60
+            elapsed=0
+            while true; do
+              http_status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000)
+              if [ "$http_status" -eq 200 ]; then
+                echo "Server is up and running."
+                break
+              fi
+              if [ "$elapsed" -ge "$timeout" ]; then
+                echo "Timeout waiting for Laravel server to start."
+                echo "Last HTTP status: $http_status"
+                cat storage/logs/server.log  # Print server logs in case of error
+                exit 1
+              fi
+              echo "Waiting for Laravel server... (HTTP status: $http_status)"
+              sleep 5
+              elapsed=$((elapsed + 5))
+            done
 
       - run:
           name: "Run Dusk Tests"
