@@ -63,8 +63,14 @@ jobs:
           command: ./vendor/bin/phpunit tests/Feature
 
       - run:
-          name: "Install Laravel Dusk"
-          command: composer require --dev laravel/dusk
+          name: "Install Laravel Dusk and Dusk Updater"
+          command: |
+            composer require --dev laravel/dusk
+            composer require --dev staudenmeir/dusk-updater
+
+      - run:
+          name: "Update ChromeDriver"
+          command: php artisan dusk:update --detect
 
       - run:
           name: "Run Dusk Tests"
