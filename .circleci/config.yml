@@ -65,29 +65,38 @@ jobs:
       - run:
           name: "Run Laravel Server"  # Start Laravel server in background and log output
           command: |
-            php artisan serve --host=0.0.0.0 --port=8001 > server.log 2>&1
-          background: true  # Run Laravel server in background
+            php artisan serve --host=0.0.0.0 --port=8001 --env=testing > server.log 2>&1
+          background: true
 
       - run:
           name: "Wait for Laravel Server"  # Wait until the server is fully up
           command: |
             timeout=60
             elapsed=0
-            until curl --output /dev/null --silent --fail http://localhost:8001; do
+            while true; do
+              http_status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8001)
+              if [ "$http_status" -eq 200 ]; then
+                echo "Server is up and running."
+                break
+              fi
               if [ "$elapsed" -ge "$timeout" ]; then
                 echo "Timeout waiting for Laravel server to start."
+                echo "Last HTTP status: $http_status"
                 cat server.log  # Print server logs in case of error
                 exit 1
               fi
-              echo 'Waiting for Laravel server...'
+              echo "Waiting for Laravel server... (HTTP status: $http_status)"
               sleep 5
               elapsed=$((elapsed + 5))
             done
 
       - run:
-          name: "Show Server Logs"  # Show logs if needed for debugging
-          command: cat server.log
-
-      - run:
           name: "Run Browser Tests"  # Run Browser tests with Laravel Dusk
           command: php artisan dusk
+
+      - run:
+          name: "Show Laravel Logs"  # Show logs if needed for debugging
+          when: on_fail
+          command: |
+            echo "Contents of storage/logs/laravel.log:"
+            cat storage/logs/laravel.log || echo "No Laravel logs found."
