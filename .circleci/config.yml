@@ -74,7 +74,7 @@ jobs:
       - run:
           name: "Start Laravel Server"
           command: |
-            php artisan serve --host=127.0.0.1 --port=8000 --env=testing > storage/logs/server.log 2>&1 &
+            php artisan serve --host=0.0.0.0 --port=8000 --env=testing > storage/logs/server.log 2>&1 &
           background: true
 
       - run:
@@ -83,7 +83,7 @@ jobs:
             timeout=60
             elapsed=0
             while true; do
-              http_status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000)
+              http_status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000)
               if [ "$http_status" -eq 200 ]; then
                 echo "Server is up and running."
                 break
@@ -102,6 +102,17 @@ jobs:
       - run:
           name: "Run Dusk Tests"
           command: php artisan dusk --debug -vvv
+
+      - run:
+          name: "Show Server Logs"
+          when: always
+          command: |
+            if [ -f storage/logs/server.log ]; then
+              echo "Contents of storage/logs/server.log:"
+              cat storage/logs/server.log
+            else
+              echo "No server logs found."
+            fi
 
       - run:
           name: "Show Laravel Logs"
