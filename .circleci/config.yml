@@ -16,10 +16,20 @@ jobs:
           command: |
             sudo apt update
             sudo docker-php-ext-install zip
+            sudo apt-get install -y php-sqlite3
+            # Enable PHP error reporting
+            echo 'display_errors = On' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
+            echo 'error_reporting = E_ALL' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
 
       - run:
           name: "Create Environment file"
           command: mv .env.testing .env
+
+      - run:
+          name: "Show .env File"
+          command: |
+            echo "Contents of .env file:"
+            cat .env
 
       # Download and cache dependencies
       - restore_cache:
@@ -41,62 +51,40 @@ jobs:
           command: php artisan key:generate
 
       - run:
-          name: "Install Sqlite"  # Install sqlite3 for database testing
+          name: "Set Permissions"
           command: |
-            sudo apt-get update
-            sudo apt-get install -y php-sqlite3
-            touch database/database.sqlite
-            php artisan migrate --env=testing
+            sudo chmod -R 0777 storage bootstrap/cache
 
       - run:
-          name: "Run Unit Tests"  # Run Unit tests
+          name: "Create SQLite Database"
+          command: |
+            touch database/database.sqlite
+
+      - run:
+          name: "Run Migrations"
+          command: php artisan migrate --env=testing --force
+
+      - run:
+          name: "Run Unit Tests"
           command: ./vendor/bin/phpunit tests/Unit
 
       - run:
-          name: "Run Feature Tests"  # Run Feature tests
+          name: "Run Feature Tests"
           command: ./vendor/bin/phpunit tests/Feature
 
       - run:
-          name: "Install Dusk and Update ChromeDriver"  # Install and update ChromeDriver for Dusk
+          name: "Install Dusk and Update ChromeDriver"
           command: |
             composer require --dev laravel/dusk
-            php artisan dusk:chrome-driver --detect
+            php artisan dusk:chrome-driver 129.0.6668.70
 
       - run:
-          name: "Run Laravel Server"  # Start Laravel server in background and log output
-          command: |
-            php artisan serve --host=0.0.0.0 --port=8001 --env=testing > server.log 2>&1
-          background: true
+          name: "Run Browser Tests with Debugging"
+          command: php artisan dusk --debug -vvv
 
       - run:
-          name: "Wait for Laravel Server"  # Wait until the server is fully up
-          command: |
-            timeout=60
-            elapsed=0
-            while true; do
-              http_status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8001)
-              if [ "$http_status" -eq 200 ]; then
-                echo "Server is up and running."
-                break
-              fi
-              if [ "$elapsed" -ge "$timeout" ]; then
-                echo "Timeout waiting for Laravel server to start."
-                echo "Last HTTP status: $http_status"
-                cat server.log  # Print server logs in case of error
-                exit 1
-              fi
-              echo "Waiting for Laravel server... (HTTP status: $http_status)"
-              sleep 5
-              elapsed=$((elapsed + 5))
-            done
-
-      - run:
-          name: "Run Browser Tests"  # Run Browser tests with Laravel Dusk
-          command: php artisan dusk
-
-      - run:
-          name: "Show Laravel Logs"  # Show logs if needed for debugging
-          when: on_fail
+          name: "Show Laravel Logs"
+          when: always
           command: |
             echo "Contents of storage/logs/laravel.log:"
             cat storage/logs/laravel.log || echo "No Laravel logs found."
