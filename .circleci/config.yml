@@ -5,7 +5,7 @@ orbs:
 jobs:
   build:
     docker:
-      - image: cimg/php:8.2-browsers  # Using PHP with browser support (comes with Chrome and Firefox)
+      - image: cimg/php:8.2-browsers
 
     steps:
       - browser-tools/install-browser-tools
@@ -42,7 +42,7 @@ jobs:
           command: php artisan key:generate
 
       - run:
-          name: "Install Sqlite"  # Simplified SQLite installation without PPA
+          name: "Install Sqlite"
           command: |
             sudo apt-get update
             sudo apt-get install -y php-sqlite3
@@ -58,34 +58,37 @@ jobs:
           command: ./vendor/bin/phpunit tests/Feature
 
       - run:
-          name: "Install Dusk and Update ChromeDriver"  # Installing Dusk and updating ChromeDriver
+          name: "Install Dusk and Update ChromeDriver"
           command: |
             composer require --dev laravel/dusk
-            composer require --dev staudenmeir/dusk-updater  # Ensure Dusk is up to date
-            php artisan dusk:chrome-driver --detect  # Automatically detects and installs the correct ChromeDriver version
-
-      # Removed manual ChromeDriver startup, as Laravel Dusk will handle this part
+            composer require --dev staudenmeir/dusk-updater
+            php artisan dusk:chrome-driver --detect
 
       - run:
-          name: "Run Laravel Server"  # Starts the Laravel server on port 8000 in the background
-          command: php artisan serve --host=127.0.0.1 --port=8000 &
-          background: true  # Run this command in the background
-
-      - run:
-          name: "Wait for Laravel Server"  # Added this step to wait for Laravel server to be fully started
+          name: "Run Laravel Server"  # Start the server and capture logs
           command: |
-            timeout=60  # Maximum wait time of 60 seconds
+            php artisan serve --host=127.0.0.1 --port=8001 > server.log 2>&1 &
+          background: true
+
+      - run:
+          name: "Wait for Laravel Server"  # Check port 8001 for server availability
+          command: |
+            timeout=60
             elapsed=0
-            until curl --output /dev/null --silent --head --fail http://127.0.0.1:8000; do
+            until curl --output /dev/null --silent --head --fail http://127.0.0.1:8001; do
               if [ "$elapsed" -ge "$timeout" ]; then
                 echo "Timeout waiting for Laravel server to start."
-                exit 1  # Exit if server doesn't start within the timeout period
+                exit 1
               fi
-              echo 'Waiting for Laravel server...'  # Keep checking every 5 seconds
+              echo 'Waiting for Laravel server...'
               sleep 5
               elapsed=$((elapsed + 5))
             done
 
       - run:
-          name: "Run Browser Tests"  # Finally, run Dusk tests once the server is ready
+          name: "Show Server Logs"  # Display server logs if the server fails to start
+          command: cat server.log
+
+      - run:
+          name: "Run Browser Tests"
           command: php artisan dusk
