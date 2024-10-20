@@ -1,28 +1,18 @@
 version: 2.1
 orbs:
-  browser-tools: circleci/browser-tools@1.4.8
+  browser-tools: circleci/browser-tools@1.4.8  # Updated orb version
 
 jobs:
   build:
     docker:
-      - image: cimg/php:8.2-browsers  # Using PHP with browser support
+      - image: cimg/php:8.1-browsers  # Updated PHP version
 
     steps:
       - browser-tools/install-browser-tools
       - checkout
 
       - run:
-          name: "Prepare Environment"
-          command: |
-            sudo apt update
-            sudo docker-php-ext-install zip
-            sudo apt-get install -y php-sqlite3
-            # Enable PHP error reporting
-            echo 'display_errors = On' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
-            echo 'error_reporting = E_ALL' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
-
-      - run:
-          name: "Create Environment file"
+          name: "Create Environment File"
           command: mv .env.testing .env
 
       - run:
@@ -39,30 +29,30 @@ jobs:
 
       - run:
           name: "Install Dependencies"
-          command: composer install -n --prefer-dist
+          command: composer install --no-interaction --prefer-dist
 
       - save_cache:
           key: v1-dependencies-{{ checksum "composer.json" }}
           paths:
-            - ./vendor
+            - vendor
 
       - run:
-          name: "Generate App key"
+          name: "Generate App Key"
           command: php artisan key:generate
 
       - run:
-          name: "Set Permissions"
-          command: |
-            sudo chmod -R 0777 storage bootstrap/cache
+          name: "Set Directory Permissions"
+          command: sudo chmod -R 0777 storage bootstrap/cache
 
       - run:
-          name: "Create SQLite Database"
+          name: "Install SQLite Extension"
+          command: sudo apt-get update && sudo apt-get install -y php-sqlite3
+
+      - run:
+          name: "Create Database and Run Migrations"
           command: |
             touch database/database.sqlite
-
-      - run:
-          name: "Run Migrations"
-          command: php artisan migrate --env=testing --force
+            php artisan migrate --env=testing --force
 
       - run:
           name: "Run Unit Tests"
@@ -73,18 +63,20 @@ jobs:
           command: ./vendor/bin/phpunit tests/Feature
 
       - run:
-          name: "Install Dusk and Update ChromeDriver"
-          command: |
-            composer require --dev laravel/dusk
-            php artisan dusk:chrome-driver 129.0.6668.70
+          name: "Install Laravel Dusk"
+          command: composer require --dev laravel/dusk
 
       - run:
-          name: "Run Browser Tests with Debugging"
+          name: "Run Dusk Tests"
           command: php artisan dusk --debug -vvv
 
       - run:
           name: "Show Laravel Logs"
           when: always
           command: |
-            echo "Contents of storage/logs/laravel.log:"
-            cat storage/logs/laravel.log || echo "No Laravel logs found."
+            if [ -f storage/logs/laravel.log ]; then
+              echo "Contents of storage/logs/laravel.log:"
+              cat storage/logs/laravel.log
+            else
+              echo "No Laravel logs found."
+            fi
