@@ -5,7 +5,7 @@ orbs:
 jobs:
   build:
     docker:
-      - image: cimg/php:8.1-browsers  # Updated PHP version
+      - image: cimg/php:8.2-browsers  # Updated PHP version to 8.2
 
     steps:
       - browser-tools/install-browser-tools
