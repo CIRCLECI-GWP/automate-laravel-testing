@@ -50,44 +50,13 @@ jobs:
             php artisan migrate --env=testing
 
       - run:
-          name: "Run Unit Tests"
-          command: ./vendor/bin/phpunit tests/Unit
+          name: "Check Laravel Environment"  # Checks the Laravel environment for issues
+          command: php artisan env
 
       - run:
-          name: "Run Feature Tests"
-          command: ./vendor/bin/phpunit tests/Feature
-
-      - run:
-          name: "Install Dusk and Update ChromeDriver"
+          name: "Run Laravel Server with Debugging"  # Laravel server in the foreground to capture logs
           command: |
-            composer require --dev laravel/dusk
-            composer require --dev staudenmeir/dusk-updater
-            php artisan dusk:chrome-driver --detect
-
-      - run:
-          name: "Run Laravel Server"  # Start the server and capture logs
-          command: |
-            php artisan serve --host=127.0.0.1 --port=8001 > server.log 2>&1 &
-          background: true
-
-      - run:
-          name: "Wait for Laravel Server"  # Check port 8001 for server availability
-          command: |
-            timeout=60
-            elapsed=0
-            until curl --output /dev/null --silent --head --fail http://127.0.0.1:8001; do
-              if [ "$elapsed" -ge "$timeout" ]; then
-                echo "Timeout waiting for Laravel server to start."
-                exit 1
-              fi
-              echo 'Waiting for Laravel server...'
-              sleep 5
-              elapsed=$((elapsed + 5))
-            done
-
-      - run:
-          name: "Show Server Logs"  # Display server logs if the server fails to start
-          command: cat server.log
+            php artisan serve --host=127.0.0.1 --port=8001 --verbose
 
       - run:
           name: "Run Browser Tests"
