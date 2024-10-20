@@ -1,11 +1,11 @@
 version: 2.1
 orbs:
   browser-tools: circleci/browser-tools@1.4.8
+
 jobs:
   build:
     docker:
-      # Specify the version you desire here
-      - image: cimg/php:8.2.21-browsers
+      - image: cimg/php:8.2-browsers  # Using PHP with browser support (comes with Chrome and Firefox)
 
     steps:
       - browser-tools/install-browser-tools
@@ -25,9 +25,7 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
-            # "composer.lock" can be used if it is committed to the repo
             - v1-dependencies-{{ checksum "composer.json" }}
-            # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
 
       - run:
@@ -43,43 +41,51 @@ jobs:
           name: "Generate App key"
           command: php artisan key:generate
 
-      # run tests with phpunit
       - run:
-          name: "Run Unit Tests"
-          command: ./vendor/bin/phpunit tests/Unit
-      - run:
-          name: "Install Sqlite"
+          name: "Install Sqlite"  # Simplified SQLite installation without PPA
           command: |
-            sudo LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php
             sudo apt-get update
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php8.2-sqlite3
-      - run:
-          name: "Create database and run migration"
-          command: |
+            sudo apt-get install -y php-sqlite3
             touch database/database.sqlite
             php artisan migrate --env=testing
 
       - run:
-          name: "Run Http Tests"
+          name: "Run Unit Tests"
+          command: ./vendor/bin/phpunit tests/Unit
+
+      - run:
+          name: "Run Feature Tests"
           command: ./vendor/bin/phpunit tests/Feature
 
       - run:
-          name: "Install Dusk and Update Chrome Drivers"
+          name: "Install Dusk and Update ChromeDriver"  # Installing Dusk and updating ChromeDriver
           command: |
             composer require --dev laravel/dusk
-            composer require --dev staudenmeir/dusk-updater
-            php artisan dusk:update --detect
+            composer require --dev staudenmeir/dusk-updater  # Ensure Dusk is up to date
+            php artisan dusk:chrome-driver --detect  # Automatically detects and installs the correct ChromeDriver version
+
+      # Removed manual ChromeDriver startup, as Laravel Dusk will handle this part
 
       - run:
-          name: Start Chrome Driver
-          command: ./vendor/laravel/dusk/bin/chromedriver-linux
-          background: true
+          name: "Run Laravel Server"  # Starts the Laravel server on port 8000 in the background
+          command: php artisan serve --host=127.0.0.1 --port=8000 &
+          background: true  # Run this command in the background
 
       - run:
-          name: Run Laravel Server
-          command: php artisan serve
-          background: true
+          name: "Wait for Laravel Server"  # Added this step to wait for Laravel server to be fully started
+          command: |
+            timeout=60  # Maximum wait time of 60 seconds
+            elapsed=0
+            until curl --output /dev/null --silent --head --fail http://127.0.0.1:8000; do
+              if [ "$elapsed" -ge "$timeout" ]; then
+                echo "Timeout waiting for Laravel server to start."
+                exit 1  # Exit if server doesn't start within the timeout period
+              fi
+              echo 'Waiting for Laravel server...'  # Keep checking every 5 seconds
+              sleep 5
+              elapsed=$((elapsed + 5))
+            done
 
       - run:
-          name: Run Browser Tests Tests
+          name: "Run Browser Tests"  # Finally, run Dusk tests once the server is ready
           command: php artisan dusk
