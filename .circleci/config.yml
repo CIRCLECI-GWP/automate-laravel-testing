@@ -12,6 +12,14 @@ jobs:
       - checkout
 
       - run:
+          name: "Prepare Environment"
+          command: |
+            sudo apt update
+            sudo docker-php-ext-install zip
+            echo 'display_errors = On' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
+            echo 'error_reporting = E_ALL' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
+
+      - run:
           name: "Ensure Storage Logs Directory Exists"
           command: |
             mkdir -p storage/logs
@@ -46,8 +54,10 @@ jobs:
           command: php artisan key:generate
 
       - run:
-          name: "Check APP_KEY in .env"
-          command: grep APP_KEY .env
+          name: "Check APP_KEY and APP_URL in .env"
+          command: |
+            grep APP_KEY .env
+            grep APP_URL .env
 
       - run:
           name: "Set Directory Permissions"
@@ -60,6 +70,12 @@ jobs:
             sudo apt-get install -y php-sqlite3 php-mbstring php-xml php-zip
 
       - run:
+          name: "Clear Config and Cache"
+          command: |
+            php artisan config:clear
+            php artisan cache:clear
+
+      - run:
           name: "Create Database and Run Migrations"
           command: |
             touch database/database.sqlite
@@ -68,6 +84,14 @@ jobs:
       - run:
           name: "Check Artisan Command"
           command: php artisan --version
+
+      - run:
+          name: "Run PHP Lint"
+          command: find . -name "*.php" -print0 | xargs -0 -n1 php -l
+
+      - run:
+          name: "Dump Composer Autoload"
+          command: composer dump-autoload
 
       - run:
           name: "Run Unit Tests"
@@ -88,35 +112,11 @@ jobs:
           command: php artisan dusk:update --detect
 
       - run:
-          name: "Start Laravel Server"
+          name: "Start Laravel Server and Run Dusk Tests"
           command: |
-            php artisan serve --host=0.0.0.0 --port=8000 --env=testing
-          background: true
-
-      - run:
-          name: "Wait for Laravel Server"
-          command: |
-            timeout=60
-            elapsed=0
-            while true; do
-              http_status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000)
-              if [ "$http_status" -eq 200 ]; then
-                echo "Server is up and running."
-                break
-              fi
-              if [ "$elapsed" -ge "$timeout" ]; then
-                echo "Timeout waiting for Laravel server to start."
-                echo "Last HTTP status: $http_status"
-                exit 1
-              fi
-              echo "Waiting for Laravel server... (HTTP status: $http_status)"
-              sleep 5
-              elapsed=$((elapsed + 5))
-            done
-
-      - run:
-          name: "Run Dusk Tests"
-          command: php artisan dusk --debug -vvv
+            php artisan serve --host=0.0.0.0 --port=8000 --env=testing &
+            sleep 5
+            php artisan dusk --debug -vvv
 
       - run:
           name: "Show Server Logs"
