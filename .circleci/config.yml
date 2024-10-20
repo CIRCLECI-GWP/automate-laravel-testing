@@ -65,7 +65,7 @@ jobs:
       - run:
           name: "Run Laravel Server"  # Start Laravel server in background and log output
           command: |
-            php artisan serve --host=127.0.0.1 --port=8001 > server.log 2>&1 &
+            php artisan serve --host=127.0.0.1 --port=8001 > server.log 2>&1
           background: true  # Run Laravel server in background
 
       - run:
