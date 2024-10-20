@@ -12,6 +12,12 @@ jobs:
       - checkout
 
       - run:
+          name: "Ensure Storage Logs Directory Exists"
+          command: |
+            mkdir -p storage/logs
+            sudo chmod -R 0777 storage
+
+      - run:
           name: "Create Environment File"
           command: mv .env.testing .env
 
@@ -28,7 +34,7 @@ jobs:
 
       - run:
           name: "Install Dependencies"
-          command: composer install --no-interaction --prefer-dist
+          command: composer install --no-interaction --prefer-dist --verbose
 
       - save_cache:
           key: v1-dependencies-{{ checksum "composer.json" }}
@@ -40,18 +46,28 @@ jobs:
           command: php artisan key:generate
 
       - run:
+          name: "Check APP_KEY in .env"
+          command: grep APP_KEY .env
+
+      - run:
           name: "Set Directory Permissions"
           command: sudo chmod -R 0777 storage bootstrap/cache
 
       - run:
-          name: "Install SQLite Extension"
-          command: sudo apt-get update && sudo apt-get install -y php-sqlite3
+          name: "Install PHP Extensions"
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y php-sqlite3 php-mbstring php-xml php-zip
 
       - run:
           name: "Create Database and Run Migrations"
           command: |
             touch database/database.sqlite
-            php artisan migrate --env=testing --force
+            php artisan migrate --env=testing --force -vvv
+
+      - run:
+          name: "Check Artisan Command"
+          command: php artisan --version
 
       - run:
           name: "Run Unit Tests"
@@ -74,7 +90,7 @@ jobs:
       - run:
           name: "Start Laravel Server"
           command: |
-            php artisan serve --host=0.0.0.0 --port=8000 --env=testing > storage/logs/server.log 2>&1 &
+            php artisan serve --host=0.0.0.0 --port=8000 --env=testing
           background: true
 
       - run:
@@ -91,7 +107,6 @@ jobs:
               if [ "$elapsed" -ge "$timeout" ]; then
                 echo "Timeout waiting for Laravel server to start."
                 echo "Last HTTP status: $http_status"
-                cat storage/logs/server.log  # Print server logs in case of error
                 exit 1
               fi
               echo "Waiting for Laravel server... (HTTP status: $http_status)"
