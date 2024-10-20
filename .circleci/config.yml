@@ -65,7 +65,7 @@ jobs:
       - run:
           name: "Run Laravel Server"  # Start Laravel server in background and log output
           command: |
-            php artisan serve --host=127.0.0.1 --port=8001 > server.log 2>&1
+            php artisan serve --host=0.0.0.0 --port=8001 > server.log 2>&1
           background: true  # Run Laravel server in background
 
       - run:
@@ -73,7 +73,7 @@ jobs:
           command: |
             timeout=60
             elapsed=0
-            until curl --output /dev/null --silent --head --fail http://127.0.0.1:8001; do
+            until curl --output /dev/null --silent --fail http://localhost:8001; do
               if [ "$elapsed" -ge "$timeout" ]; then
                 echo "Timeout waiting for Laravel server to start."
                 cat server.log  # Print server logs in case of error
