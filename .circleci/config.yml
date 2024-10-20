@@ -16,8 +16,8 @@ jobs:
           command: |
             sudo apt update
             sudo docker-php-ext-install zip
-            echo 'display_errors = On' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
-            echo 'error_reporting = E_ALL' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
+            sudo bash -c 'echo "display_errors = On" >> $(php -r "echo php_ini_loaded_file();")'
+            sudo bash -c 'echo "error_reporting = E_ALL" >> $(php -r "echo php_ini_loaded_file();")'
 
       - run:
           name: "Ensure Storage Logs Directory Exists"
