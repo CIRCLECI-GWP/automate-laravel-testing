@@ -54,10 +54,6 @@ jobs:
             php artisan migrate --env=testing --force -vvv
 
       - run:
-          name: "Dump Composer Autoload"
-          command: composer dump-autoload
-
-      - run:
           name: "Run Feature Tests"
           command: ./vendor/bin/phpunit tests/Feature
 
