@@ -69,7 +69,7 @@ jobs:
             php artisan dusk:update --detect
 
       - run:
-          name: "Start Laravel Server and Run Dusk Tests"
+          name: "Start Laravel Server"
           command: php artisan serve
           background: true
 
