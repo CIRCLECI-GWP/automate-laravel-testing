@@ -51,7 +51,7 @@ jobs:
           name: "Create Database and Run Migrations"
           command: |
             touch database/database.sqlite
-            php artisan migrate --env=testing --force -vvv
+            php artisan migrate --env=testing
 
       - run:
           name: "Run Feature Tests"
