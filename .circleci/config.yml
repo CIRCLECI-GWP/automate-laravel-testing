@@ -15,11 +15,9 @@ jobs:
           name: "Prepare Environment"
           command: |
             sudo apt update
-            sudo docker-php-ext-install zip
-            ini_file=$(php -r "echo php_ini_loaded_file();")
-            echo "PHP ini file is at $ini_file"
-            sudo bash -c "echo 'display_errors = On' >> $ini_file"
-            sudo bash -c "echo 'error_reporting = E_ALL' >> $ini_file"
+            # Removed unnecessary installation of zip extension
+            # Install required PHP extensions
+            sudo apt-get install -y php-sqlite3 php-mbstring php-xml php-zip
 
       - run:
           name: "Ensure Storage Logs Directory Exists"
@@ -66,12 +64,6 @@ jobs:
           command: sudo chmod -R 0777 storage bootstrap/cache
 
       - run:
-          name: "Install PHP Extensions"
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y php-sqlite3 php-mbstring php-xml php-zip
-
-      - run:
           name: "Create Database and Run Migrations"
           command: |
             touch database/database.sqlite
@@ -107,7 +99,8 @@ jobs:
       - run:
           name: "Start Laravel Server and Run Dusk Tests"
           command: |
-            php artisan serve --host=0.0.0.0 --port=8000 --env=testing &
+            # Start the Laravel server with error reporting enabled via command-line options
+            php -d display_errors=On -d error_reporting=E_ALL artisan serve --host=0.0.0.0 --port=8000 --env=testing &
             sleep 5
             php artisan dusk --debug -vvv
 
