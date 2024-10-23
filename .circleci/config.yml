@@ -5,7 +5,7 @@ orbs:
 jobs:
   build:
     docker:
-      - image: cimg/php:8.2-browsers  # Using PHP 8.2 with browser support
+      - image: cimg/php:8.2-browsers
 
     steps:
       - browser-tools/install-browser-tools
@@ -16,8 +16,10 @@ jobs:
           command: |
             sudo apt update
             sudo docker-php-ext-install zip
-            sudo bash -c 'echo "display_errors = On" >> $(php -r "echo php_ini_loaded_file();")'
-            sudo bash -c 'echo "error_reporting = E_ALL" >> $(php -r "echo php_ini_loaded_file();")'
+            ini_file=$(php -r "echo php_ini_loaded_file();")
+            echo "PHP ini file is at $ini_file"
+            sudo bash -c "echo 'display_errors = On' >> $ini_file"
+            sudo bash -c "echo 'error_reporting = E_ALL' >> $ini_file"
 
       - run:
           name: "Ensure Storage Logs Directory Exists"
@@ -103,9 +105,11 @@ jobs:
             php artisan dusk:update --detect
 
       - run:
-          name: "Start Laravel Server"
+          name: "Start Laravel Server and Run Dusk Tests"
           command: |
-            php artisan serve --host=0.0.0.0 --port=8000 --env=testing
+            php artisan serve --host=0.0.0.0 --port=8000 --env=testing &
+            sleep 5
+            php artisan dusk --debug -vvv
 
       - run:
           name: "Show Laravel Logs"
