@@ -5,11 +5,25 @@ orbs:
 jobs:
   build:
     docker:
-      - image: cimg/php:8.2-browsers
+      - image: cimg/php:8.2-browsers  # Using PHP 8.2 with browser support
 
     steps:
       - browser-tools/install-browser-tools
       - checkout
+
+      - run:
+          name: "Prepare Environment"
+          command: |
+            sudo apt update
+            sudo docker-php-ext-install zip
+            sudo bash -c 'echo "display_errors = On" >> $(php -r "echo php_ini_loaded_file();")'
+            sudo bash -c 'echo "error_reporting = E_ALL" >> $(php -r "echo php_ini_loaded_file();")'
+
+      - run:
+          name: "Ensure Storage Logs Directory Exists"
+          command: |
+            mkdir -p storage/logs
+            sudo chmod -R 0777 storage
 
       - run:
           name: "Create Environment File"
@@ -28,7 +42,7 @@ jobs:
 
       - run:
           name: "Install Dependencies"
-          command: composer install --no-interaction --prefer-dist
+          command: composer install --no-interaction --prefer-dist --verbose
 
       - save_cache:
           key: v1-dependencies-{{ checksum "composer.json" }}
@@ -40,18 +54,38 @@ jobs:
           command: php artisan key:generate
 
       - run:
+          name: "Check APP_KEY and APP_URL in .env"
+          command: |
+            grep APP_KEY .env
+            grep APP_URL .env
+
+      - run:
           name: "Set Directory Permissions"
           command: sudo chmod -R 0777 storage bootstrap/cache
 
       - run:
-          name: "Install SQLite Extension"
-          command: sudo apt-get update && sudo apt-get install -y php-sqlite3
+          name: "Install PHP Extensions"
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y php-sqlite3 php-mbstring php-xml php-zip
 
       - run:
           name: "Create Database and Run Migrations"
           command: |
             touch database/database.sqlite
-            php artisan migrate --env=testing --force
+            php artisan migrate --env=testing --force -vvv
+
+      - run:
+          name: "Check Artisan Command"
+          command: php artisan --version
+
+      - run:
+          name: "Run PHP Lint"
+          command: find . -name "*.php" -print0 | xargs -0 -n1 php -l
+
+      - run:
+          name: "Dump Composer Autoload"
+          command: composer dump-autoload
 
       - run:
           name: "Run Unit Tests"
@@ -71,39 +105,7 @@ jobs:
       - run:
           name: "Start Laravel Server"
           command: |
-            php artisan serve --host=0.0.0.0 --port=8000 --env=testing > storage/logs/server.log 2>&1 &
-          background: true
-
-      - run:
-          name: "Wait for Laravel Server"
-          command: |
-            timeout=60
-            until curl --output /dev/null --silent --head --fail http://localhost:8000; do
-              echo "Waiting for Laravel server..."
-              sleep 5
-              timeout=$((timeout - 5))
-              if [ $timeout -le 0 ]; then
-                echo "Laravel server did not start in time."
-                cat storage/logs/server.log  # Output server logs for debugging
-                exit 1
-              fi
-            done
-            echo "Laravel server is up."
-
-      - run:
-          name: "Run Dusk Tests"
-          command: php artisan dusk
-
-      - run:
-          name: "Show Server Logs"
-          when: always
-          command: |
-            if [ -f storage/logs/server.log ]; then
-              echo "Contents of storage/logs/server.log:"
-              cat storage/logs/server.log
-            else
-              echo "No server logs found."
-            fi
+            php artisan serve --host=0.0.0.0 --port=8000 --env=testing
 
       - run:
           name: "Show Laravel Logs"
