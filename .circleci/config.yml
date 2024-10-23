@@ -71,18 +71,6 @@ jobs:
       - run:
           name: "Start Laravel Server and Run Dusk Tests"
           command: |
-            # Start the Laravel server with error reporting enabled via command-line options
-            php -d display_errors=On -d error_reporting=E_ALL artisan serve --host=0.0.0.0 --port=8000 --env=testing &
+            php artisan serve --host=0.0.0.0 --port=8000 --env=testing &
             sleep 5
             php artisan dusk --debug -vvv
-
-      - run:
-          name: "Show Laravel Logs"
-          when: always
-          command: |
-            if [ -f storage/logs/laravel.log ]; then
-              echo "Contents of storage/logs/laravel.log:"
-              cat storage/logs/laravel.log
-            else
-              echo "No Laravel logs found."
-            fi
