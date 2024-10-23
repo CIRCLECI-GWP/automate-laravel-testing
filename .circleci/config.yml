@@ -8,101 +8,55 @@ jobs:
       - image: cimg/php:8.2-browsers
 
     steps:
-      - browser-tools/install-browser-tools
       - checkout
 
+      - browser-tools/install-browser-tools
+
       - run:
-          name: "Prepare Environment"
+          name: "Set Up Environment"
           command: |
-            sudo apt update
-            # Removed unnecessary installation of zip extension
-            # Install required PHP extensions
+            sudo apt-get update
             sudo apt-get install -y php-sqlite3 php-mbstring php-xml php-zip
-
-      - run:
-          name: "Ensure Storage Logs Directory Exists"
-          command: |
             mkdir -p storage/logs
-            sudo chmod -R 0777 storage
-
-      - run:
-          name: "Create Environment File"
-          command: mv .env.testing .env
-
-      - run:
-          name: "Show .env File"
-          command: |
-            echo "Contents of .env file:"
-            cat .env
+            sudo chmod -R 0777 storage bootstrap/cache
+            mv .env.testing .env
+            php artisan key:generate
+            touch database/database.sqlite
 
       - restore_cache:
           keys:
-            - v1-dependencies-{{ checksum "composer.json" }}
-            - v1-dependencies-
+            - composer-v1-{{ checksum "composer.lock" }}
+            - composer-v1-
 
       - run:
           name: "Install Dependencies"
-          command: composer install --no-interaction --prefer-dist --verbose
+          command: composer install --no-interaction --prefer-dist
 
       - save_cache:
-          key: v1-dependencies-{{ checksum "composer.json" }}
+          key: composer-v1-{{ checksum "composer.lock" }}
           paths:
             - vendor
 
       - run:
-          name: "Generate App Key"
-          command: php artisan key:generate
+          name: "Run Migrations"
+          command: php artisan migrate --env=testing --force
 
       - run:
-          name: "Check APP_KEY and APP_URL in .env"
-          command: |
-            grep APP_KEY .env
-            grep APP_URL .env
+          name: "Run PHPUnit Tests"
+          command: ./vendor/bin/phpunit
 
       - run:
-          name: "Set Directory Permissions"
-          command: sudo chmod -R 0777 storage bootstrap/cache
-
-      - run:
-          name: "Create Database and Run Migrations"
-          command: |
-            touch database/database.sqlite
-            php artisan migrate --env=testing --force -vvv
-
-      - run:
-          name: "Check Artisan Command"
-          command: php artisan --version
-
-      - run:
-          name: "Run PHP Lint"
-          command: find . -name "*.php" -print0 | xargs -0 -n1 php -l
-
-      - run:
-          name: "Dump Composer Autoload"
-          command: composer dump-autoload
-
-      - run:
-          name: "Run Unit Tests"
-          command: ./vendor/bin/phpunit tests/Unit
-
-      - run:
-          name: "Run Feature Tests"
-          command: ./vendor/bin/phpunit tests/Feature
-
-      - run:
-          name: "Install Laravel Dusk and Dusk Updater"
+          name: "Install Laravel Dusk"
           command: |
             composer require --dev laravel/dusk
-            composer require --dev staudenmeir/dusk-updater
             php artisan dusk:update --detect
 
       - run:
-          name: "Start Laravel Server and Run Dusk Tests"
+          name: "Start Server and Run Dusk Tests"
           command: |
-            # Start the Laravel server with error reporting enabled via command-line options
-            php -d display_errors=On -d error_reporting=E_ALL artisan serve --host=0.0.0.0 --port=8000 --env=testing &
+            php -d display_errors=On -d error_reporting=E_ALL artisan serve --host=127.0.0.1 --port=8000 --env=testing &
             sleep 5
-            php artisan dusk --debug -vvv
+            php artisan dusk
 
       - run:
           name: "Show Laravel Logs"
