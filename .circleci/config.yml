@@ -69,6 +69,11 @@ jobs:
             php artisan dusk:update --detect
 
       - run:
+          name: Start Chrome Driver
+          command: ./vendor/laravel/dusk/bin/chromedriver-linux
+          background: true
+
+      - run:
           name: "Start Laravel Server"
           command: php artisan serve
           background: true
