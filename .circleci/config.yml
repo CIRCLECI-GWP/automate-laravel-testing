@@ -70,9 +70,8 @@ jobs:
 
       - run:
           name: "Start Laravel Server and Run Dusk Tests"
-          command: |
-            php artisan serve
-            background: true
+          command: php artisan serve
+          background: true
 
       - run:
           name: "Start Laravel Server and Run Dusk Tests"
