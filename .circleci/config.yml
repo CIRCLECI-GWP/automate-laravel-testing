@@ -8,55 +8,73 @@ jobs:
       - image: cimg/php:8.2-browsers
 
     steps:
+      - browser-tools/install-browser-tools
       - checkout
 
-      - browser-tools/install-browser-tools
+      - run:
+          name: "Prepare Environment"
+          command: |
+            sudo apt update
+            sudo apt-get install -y php-mbstring php-xml php-zip
 
       - run:
-          name: "Set Up Environment"
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y php-sqlite3 php-mbstring php-xml php-zip
-            mkdir -p storage/logs
-            sudo chmod -R 0777 storage bootstrap/cache
-            mv .env.testing .env
-            php artisan key:generate
-            touch database/database.sqlite
+          name: "Create Environment File"
+          command: mv .env.testing .env
 
       - restore_cache:
           keys:
-            - composer-v1-{{ checksum "composer.lock" }}
-            - composer-v1-
+            - v1-dependencies-{{ checksum "composer.json" }}
+            - v1-dependencies-
 
       - run:
           name: "Install Dependencies"
-          command: composer install --no-interaction --prefer-dist
+          command: composer install -n --prefer-dist
 
       - save_cache:
-          key: composer-v1-{{ checksum "composer.lock" }}
+          key: v1-dependencies-{{ checksum "composer.json" }}
           paths:
             - vendor
 
       - run:
-          name: "Run Migrations"
-          command: php artisan migrate --env=testing --force
+          name: "Generate App Key"
+          command: php artisan key:generate
 
       - run:
-          name: "Run PHPUnit Tests"
-          command: ./vendor/bin/phpunit
+          name: "Run Unit Tests"
+          command: ./vendor/bin/phpunit tests/Unit
 
       - run:
-          name: "Install Laravel Dusk"
+          name: "Install sqlite"
+          command: sudo apt-get install -y php-sqlite3
+
+      - run:
+          name: "Create Database and Run Migrations"
+          command: |
+            touch database/database.sqlite
+            php artisan migrate --env=testing --force -vvv
+
+      - run:
+          name: "Dump Composer Autoload"
+          command: composer dump-autoload
+
+      - run:
+          name: "Run Feature Tests"
+          command: ./vendor/bin/phpunit tests/Feature
+
+      - run:
+          name: "Install Laravel Dusk and Dusk Updater"
           command: |
             composer require --dev laravel/dusk
+            composer require --dev staudenmeir/dusk-updater
             php artisan dusk:update --detect
 
       - run:
-          name: "Start Server and Run Dusk Tests"
+          name: "Start Laravel Server and Run Dusk Tests"
           command: |
-            php -d display_errors=On -d error_reporting=E_ALL artisan serve --host=127.0.0.1 --port=8000 --env=testing &
+            # Start the Laravel server with error reporting enabled via command-line options
+            php -d display_errors=On -d error_reporting=E_ALL artisan serve --host=0.0.0.0 --port=8000 --env=testing &
             sleep 5
-            php artisan dusk
+            php artisan dusk --debug -vvv
 
       - run:
           name: "Show Laravel Logs"
